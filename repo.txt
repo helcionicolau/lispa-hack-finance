@@ -1,0 +1,203 @@
+Não recebe crédito:
+
+{
+  "numero_conta": "013",
+  "nome_completo": "Paulo Bunga",
+  "genero": "Male",
+  "estado_civil": "Yes",
+  "dependentes": "One",
+  "educacao": "Graduate",
+  "emprego": "Job",
+  "propriedade": "Rural",
+  "credito": "Between 300 to 500",
+  "renda_mensal_requerente": 150,
+  "renda_mensal_co_requerente": 0,
+  "valor_emprestimo": 100000,
+  "duracao_emprestimo": 2
+}
+
+
+Recebe crédito:
+
+{
+  "numero_conta": "010",
+  "nome_completo": "João Baptista",
+  "genero": "Male",
+  "estado_civil": "No",
+  "dependentes": "One",
+  "educacao": "Graduate",
+  "emprego": "Job",
+  "propriedade": "Urban",
+  "credito": "Above 500",
+  "renda_mensal_requerente": 15000,
+  "renda_mensal_co_requerente": 200,
+  "valor_emprestimo": 500,
+  "duracao_emprestimo": 2
+}
+
+
+from flask import Flask, request, jsonify
+import mysql.connector
+import json
+import pickle
+
+app = Flask(__name__)
+
+# Configurações do banco de dados
+db_config = {
+    "host": "localhost",
+    "user": "root",
+    "password": "",
+    "database": "financial_hack_db",
+}
+
+# Caminho completo para o modelo treinado
+modelo_treinado_path = "./Model/ML_Model.pkl"
+with open(modelo_treinado_path, "rb") as model_file:
+    try:
+        model = pickle.load(model_file)
+    except EOFError:
+        print("Erro: O arquivo do modelo está vazio ou corrompido.")
+
+# Mapeamento direto para valores categóricos
+genero_mapping = {"Female": 0, "Male": 1}
+estado_civil_mapping = {"Yes": 1, "No": 0}
+dependentes_mapping = {"No": 0, "One": 1, "Two": 2, "More than Two": 3}
+edu_mapping = {"Not Graduate": 0, "Graduate": 1}
+emp_mapping = {"Job": 0, "Business": 1}
+prop_mapping = {"Rural": 0, "Semi-Urban": 1, "Urban": 2}
+cred_mapping = {"Between 300 to 500": 0, "Above 500": 1}
+
+# Rota para prever empréstimo
+@app.route("/prever_emprestimo", methods=["POST"])
+def prever_emprestimo():
+    try:
+        # Conecta ao banco de dados
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+
+        # Converte a entrada para o formato JSON
+        data_input = json.loads(request.data)
+
+        # Extrai os dados para previsão
+        account_no = data_input["numero_conta"]
+        fn = data_input["nome_completo"]
+        gen = genero_mapping[data_input["genero"]]
+        mar = estado_civil_mapping[data_input["estado_civil"]]
+        dep = dependentes_mapping[data_input["dependentes"]]
+        edu = edu_mapping[data_input["educacao"]]
+        emp = emp_mapping[data_input["emprego"]]
+        prop = prop_mapping[data_input["propriedade"]]
+        cred = cred_mapping[data_input["credito"]]
+        mon_income = data_input["renda_mensal_requerente"]
+        co_mon_income = data_input["renda_mensal_co_requerente"]
+        loan_amt = data_input["valor_emprestimo"]
+        dur = data_input["duracao_emprestimo"]
+
+        # Converte a duração do empréstimo para meses
+        duration = 0
+        if dur == 0:
+            duration = 60
+        elif dur == 1:
+            duration = 180
+        elif dur == 2:
+            duration = 240
+        elif dur == 3:
+            duration = 360
+        elif dur == 4:
+            duration = 480
+
+        # Realiza a predição
+        features = [
+            [
+                gen,
+                mar,
+                dep,
+                edu,
+                emp,
+                float(mon_income),
+                float(co_mon_income),
+                float(loan_amt),
+                duration,
+                cred,
+                prop,
+            ]
+        ]
+        predicao = model.predict(features)
+
+        # Verifica se o resultado da predição é válido (0 ou 1)
+        if predicao[0] not in [0, 1]:
+            raise ValueError(f"Resultado inválido da predição: {predicao}")
+
+        # Insere os dados no banco de dados
+        insert_data = "INSERT INTO emprestimos (numero_conta, nome_completo, genero, estado_civil, dependentes, educacao, emprego, propriedade, credito, renda_mensal_requerente, renda_mensal_co_requerente, valor_emprestimo, duracao_emprestimo, resultado_predicao) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        data_values = (
+            account_no,
+            fn,
+            gen,
+            mar,
+            dep,
+            edu,
+            emp,
+            prop,
+            cred,
+            float(mon_income),
+            float(co_mon_income),
+            float(loan_amt),
+            float(duration),
+            int(predicao[0]),
+        )
+        cursor.execute(insert_data, data_values)
+
+        # Commit da transação
+        conn.commit()
+
+        # Retorna os resultados como resposta JSON
+        return jsonify(
+            {
+                "numero_conta": account_no,
+                "nome_completo": fn,
+                "resultado_predicao": int(predicao[0]),
+            }
+        )
+
+    except Exception as e:
+        return jsonify({"erro": str(e)})
+
+    finally:
+        # Fecha a conexão com o banco de dados
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+
+# Rota para ler todos os dados
+@app.route("/ler_dados", methods=["GET"])
+def ler_dados():
+    try:
+        # Conecta ao banco de dados
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor(dictionary=True)
+
+        # Executa a consulta SQL para obter todos os dados
+        query = "SELECT * FROM emprestimos"
+        cursor.execute(query)
+
+        # Obtém todos os dados do resultado da consulta
+        dados = cursor.fetchall()
+
+        # Retorna os dados como resposta JSON
+        return jsonify(dados)
+
+    except Exception as e:
+        return jsonify({"erro": str(e)})
+
+    finally:
+        # Fecha a conexão com o banco de dados
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+
+if __name__ == "__main__":
+    app.run(debug=True)

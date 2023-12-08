@@ -1,0 +1,7 @@
+id_emprestimo,numero_conta,nome_completo,genero,estado_civil,dependentes,educacao,emprego,propriedade,credito,renda_mensal_requerente,renda_mensal_co_requerente,valor_emprestimo,duracao_emprestimo,resultado_predicao
+1,Conta432,Fulano Sicrano,Male,No,No,Graduate,Job,Urban,Above 500,15000,0,500,2,0
+2,Conta123,Fulano de X,Male,No,No,Graduate,Job,Urban,Above 500,15000,0,500,2,0
+3,Conta323,Fulano de Y,Male,No,No,Graduate,Job,Urban,Above 500,10000,10,500,2,0
+3,Conta256,Fulano de K,Male,No,No,Graduate,Job,Urban,Above 500,15000,0,500,2,0
+3,010,Fulano de J,Male,No,No,Graduate,Job,Urban,Above 500,15000,0,500,2,0
+3,010,Fulano de J,Male,No,No,Graduate,Job,Urban,Above 500,15000,0,500,2,0
