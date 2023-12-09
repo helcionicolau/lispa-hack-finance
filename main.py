@@ -1,3 +1,5 @@
+import os
+import smtplib
 from flask import Flask, request, jsonify
 import mysql.connector
 import json
@@ -10,6 +12,15 @@ import bcrypt
 from passlib.hash import md5_crypt
 from flask_bcrypt import Bcrypt
 from werkzeug.security import check_password_hash, generate_password_hash
+import pdfkit
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+import smtplib
+from email.mime.multipart import MIMEMultipart
+
 
 bcrypt = Bcrypt()
 
@@ -18,10 +29,10 @@ CORS(app)
 
 # Configurações do banco de dados
 db_config = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "financial_hack_db",
+    "host": "mysql-securegestdb.alwaysdata.net",
+    "user": "331882_financial",
+    "password": "kjdhi%%##$",
+    "database": "securegestdb_financial_db",
 }
 
 
@@ -62,6 +73,61 @@ cred_mapping = {"Between 300 to 500": 0, "Above 500": 1}
 
 
 # ...............................................CRIAR CREDITO..................................................#
+
+
+def obter_motivo_decisao(predicao):
+    motivo = "Motivo da Decisão:\n"
+    if predicao == 1:
+        motivo += "O crédito foi aprovado."
+    else:
+        motivo += "O crédito foi rejeitado. Motivos possíveis:\n"
+        motivo += "- Valor do empréstimo muito alto.\n"
+        motivo += "- Baixa renda mensal do requerente ou co-requerente.\n"
+        motivo += "- Duração do empréstimo muito longa."
+
+    return motivo
+
+def enviar_email(email, motivo_decisao):
+    subject = "Detalhes da Solicitação de Crédito"
+    
+    # Corpo da mensagem formal
+    body = f"Prezado Cliente,\n\n"
+    body += "Agradecemos por escolher nossos serviços para a sua solicitação de crédito. Após uma cuidadosa análise, informamos que a decisão em relação ao seu pedido é a seguinte:\n\n"
+    body += f"Resultado da Decisão: {motivo_decisao}\n\n"
+    body += f"{obter_motivo_decisao(motivo_decisao)}\n\n"
+    body += "Agradecemos pela confiança em nossa instituição. Caso tenha alguma dúvida ou precise de mais informações, não hesite em entrar em contato conosco.\n\n"
+    body += "Atenciosamente,\n\n"
+    body += "[Seu Nome]\n"
+    body += "[Seu Cargo]\n"
+    body += "[Nome da Sua Instituição]"
+
+    # Configurações do e-mail
+    sender_email = "helcio05nicolau@gmail.com"  # Substitua pelo seu e-mail
+    sender_password = "nfcb nmob jfcb nvis"  # Substitua pela sua senha
+
+    msg = MIMEMultipart()
+    msg["From"] = sender_email
+    msg["To"] = email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
+    # Conecta ao servidor SMTP e envia o e-mail
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, email, msg.as_string())
+
+    print(f"E-mail enviado para {email} com os detalhes da solicitação de crédito.")
+
+# ... (código posterior)
+
+
+# ... (código posterior)
+
+
+# ... (código posterior)
+
+
 # Rota para criar um novo empréstimo
 @app.route("/criar_credito", methods=["POST"])
 def criar_emprestimo():
@@ -147,8 +213,11 @@ def criar_emprestimo():
         if predicao[0] not in [0, 1]:
             raise ValueError(f"Resultado inválido da predição: {predicao}")
 
+        # Obtém o motivo da decisão
+        motivo_decisao_automatico = obter_motivo_decisao(predicao[0])
+
         # Insere os dados no banco de dados
-        insert_data = "INSERT INTO emprestimos (numero_conta, nome_completo, genero, estado_civil, dependentes, educacao, emprego, propriedade, credito, renda_mensal_requerente, renda_mensal_co_requerente, valor_emprestimo, duracao_emprestimo, tipo_credito, email, resultado_predicao) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        insert_data = "INSERT INTO emprestimos (numero_conta, nome_completo, genero, estado_civil, dependentes, educacao, emprego, propriedade, credito, renda_mensal_requerente, renda_mensal_co_requerente, valor_emprestimo, duracao_emprestimo, tipo_credito, email, resultado_predicao, motivo_decisao) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
         data_values = (
             account_no,
             fn,
@@ -166,11 +235,15 @@ def criar_emprestimo():
             tipo_credito,
             email,
             int(predicao[0]),
+            motivo_decisao_automatico,
         )
         cursor.execute(insert_data, data_values)
 
         # Commit da transação
         conn.commit()
+
+        # Envia e-mail com os detalhes da decisão
+        enviar_email(email, motivo_decisao_automatico)
 
         # Retorna os resultados como resposta JSON
         return jsonify(
@@ -178,6 +251,8 @@ def criar_emprestimo():
                 "numero_conta": account_no,
                 "nome_completo": fn,
                 "resultado_predicao": int(predicao[0]),
+                "motivo_decisao": motivo_decisao_automatico,
+                "email": email,
             }
         )
 
@@ -189,6 +264,7 @@ def criar_emprestimo():
         if conn.is_connected():
             cursor.close()
             conn.close()
+
 
 
 # ...............................................EMPRESTIMO..................................................#
