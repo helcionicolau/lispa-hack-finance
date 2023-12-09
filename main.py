@@ -53,15 +53,6 @@ dur_mapping = {"2 Math": 0, "6 Math": 1, "8 Math": 2, "1 Year": 3, "16 Math": 4}
 prop_mapping = {"Rural": 0, "Semi-Urban": 1, "Urban": 2}
 cred_mapping = {"Between 300 to 500": 0, "Above 500": 1}
 
-# tipo_credito_mapping = {
-#     "Salario": 0,
-#     "Pessoal": 1,
-#     "Automovel": 2,
-#     "Particular": 3,
-#     "Habitacao": 4,
-#     "Seguro": 5,
-# }
-
 
 # ...............................................CRIAR CREDITO..................................................#
 
