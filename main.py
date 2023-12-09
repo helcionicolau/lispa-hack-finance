@@ -36,7 +36,7 @@ def obter_conexao():
 
 
 # Caminho completo para o modelo treinado
-modelo_treinado_path = "./Model/ML_Model.pkl"
+modelo_treinado_path = "Model/ML_Model.pkl"
 with open(modelo_treinado_path, "rb") as model_file:
     try:
         model = pickle.load(model_file)
