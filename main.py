@@ -3,8 +3,18 @@ import mysql.connector
 import json
 import pickle
 import hashlib
+import jwt
+from flask_cors import CORS
+import datetime
+import bcrypt
+from passlib.hash import md5_crypt
+from flask_bcrypt import Bcrypt
+from werkzeug.security import check_password_hash, generate_password_hash
+
+bcrypt = Bcrypt()
 
 app = Flask(__name__)
+CORS(app)
 
 # Configurações do banco de dados
 db_config = {
@@ -14,13 +24,15 @@ db_config = {
     "database": "financial_hack_db",
 }
 
+
 def obter_conexao():
     try:
         return mysql.connector.connect(**db_config)
     except mysql.connector.Error as err:
         print(f"Erro ao conectar ao banco de dados: {err}")
         return None
-    
+
+
 # Caminho completo para o modelo treinado
 modelo_treinado_path = "./Model/ML_Model.pkl"
 with open(modelo_treinado_path, "rb") as model_file:
@@ -35,6 +47,7 @@ estado_civil_mapping = {"Yes": 1, "No": 0}
 dependentes_mapping = {"No": 0, "One": 1, "Two": 2, "More than Two": 3}
 edu_mapping = {"Not Graduate": 0, "Graduate": 1}
 emp_mapping = {"Job": 0, "Business": 1}
+dur_mapping = {"2 Math": 0, "6 Math": 1, "8 Math": 2, "1 Year": 3, "16 Math": 4}
 prop_mapping = {"Rural": 0, "Semi-Urban": 1, "Urban": 2}
 cred_mapping = {"Between 300 to 500": 0, "Above 500": 1}
 
@@ -46,6 +59,7 @@ cred_mapping = {"Between 300 to 500": 0, "Above 500": 1}
 #     "Habitacao": 4,
 #     "Seguro": 5,
 # }
+
 
 # ...............................................CRIAR CREDITO..................................................#
 # Rota para criar um novo empréstimo
@@ -179,7 +193,7 @@ def criar_emprestimo():
 
 # ...............................................EMPRESTIMO..................................................#
 # Rota para atualizar campos específicos de um registro pelo id_emprestimo
-@app.route("/atualizar_credito/<int:id_emprestimo>", methods=["PUT"])
+@app.route("/atualizar_credito/<id_emprestimo>", methods=["PUT"])
 def atualizar_registro(id_emprestimo):
     try:
         # Conecta ao banco de dados
@@ -192,7 +206,9 @@ def atualizar_registro(id_emprestimo):
         resultado = cursor.fetchone()
 
         if resultado is None:
-            return jsonify({"erro": f"Registro com id_emprestimo {id_emprestimo} não encontrado."})
+            return jsonify(
+                {"erro": f"Registro com id_emprestimo {id_emprestimo} não encontrado."}
+            )
 
         # Converte a entrada para o formato JSON
         data_input = json.loads(request.data)
@@ -211,7 +227,11 @@ def atualizar_registro(id_emprestimo):
         # Commit da transação
         conn.commit()
 
-        return jsonify({"mensagem": f"Registro com id_emprestimo {id_emprestimo} atualizado com sucesso."})
+        return jsonify(
+            {
+                "mensagem": f"Registro com id_emprestimo {id_emprestimo} atualizado com sucesso."
+            }
+        )
 
     except Exception as e:
         return jsonify({"erro": str(e)})
@@ -220,7 +240,7 @@ def atualizar_registro(id_emprestimo):
         # Fecha a conexão com o banco de dados
         if conn.is_connected():
             cursor.close()
-            conn.close()   
+            conn.close()
 
 
 # ...............................................USUARIO..................................................#
@@ -252,7 +272,8 @@ def ler_dados_usuarios():
         # Fecha a conexão com o banco de dados
         if conn and conn.is_connected():
             cursor.close()
-            conn.close()                      
+            conn.close()
+
 
 # ...............................................LER CREDITOS..................................................#
 # Rota para ler todos os dados
@@ -273,8 +294,11 @@ def ler_dados():
         # Obtém todos os dados do resultado da consulta
         dados = cursor.fetchall()
 
+        # Adiciona o campo 'resultado_predicao' à resposta JSON
+        dados_com_resultado = [{"resultado_predicao": dado["resultado_predicao"], **dado} for dado in dados]
+
         # Retorna os dados como resposta JSON
-        return jsonify(dados)
+        return jsonify(dados_com_resultado)
 
     except Exception as e:
         return jsonify({"erro": str(e)})
@@ -285,8 +309,9 @@ def ler_dados():
             cursor.close()
             conn.close()
 
+
 # Rota para ler um dado específico pelo id_emprestimo
-@app.route("/ler_credito/<int:id_emprestimo>", methods=["GET"])
+@app.route("/ler_credito/<id_emprestimo>", methods=["GET"])
 def ler_dado(id_emprestimo):
     try:
         # Conecta ao banco de dados
@@ -304,7 +329,9 @@ def ler_dado(id_emprestimo):
         dado = cursor.fetchone()
 
         if dado:
-            return jsonify(dado)
+            # Adiciona o campo 'resultado_predicao' à resposta JSON
+            dado_com_resultado = {"resultado_predicao": dado["resultado_predicao"], **dado}
+            return jsonify(dado_com_resultado)
         else:
             return jsonify({"erro": "Registro não encontrado"})
 
@@ -318,6 +345,7 @@ def ler_dado(id_emprestimo):
             conn.close()
 
 
+
 # ...............................................DEELETAR...............................................#
 # Rota para deletar um registro pelo id_emprestimo
 @app.route("/deletar_credito/<id_emprestimo>", methods=["GET", "DELETE"])
@@ -325,7 +353,6 @@ def deletar_credito(id_emprestimo):
     conn = None  # Defina a variável conn fora do bloco try
 
     try:
-        
         # Conecta ao banco de dados
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
@@ -336,7 +363,9 @@ def deletar_credito(id_emprestimo):
         resultado = cursor.fetchone()
 
         if resultado is None:
-            return jsonify({"erro": f"Registro com id_emprestimo {id_emprestimo} não encontrado."})
+            return jsonify(
+                {"erro": f"Registro com id_emprestimo {id_emprestimo} não encontrado."}
+            )
 
         # Deleta o registro pelo id_emprestimo
         delete_query = "DELETE FROM emprestimos WHERE id_emprestimo = %s"
@@ -345,7 +374,11 @@ def deletar_credito(id_emprestimo):
         # Commit da transação
         conn.commit()
 
-        return jsonify({"mensagem": f"Registro com id_emprestimo {id_emprestimo} deletado com sucesso."})
+        return jsonify(
+            {
+                "mensagem": f"Registro com id_emprestimo {id_emprestimo} deletado com sucesso."
+            }
+        )
 
     except Exception as e:
         return jsonify({"erro": str(e)})
@@ -356,18 +389,21 @@ def deletar_credito(id_emprestimo):
             cursor.close()
             conn.close()
 
-                         
-
 
 # ...............................................LOGIN..................................................#
 # Rota para realizar o login
+
+# Chave secreta para assinar os tokens JWT
+SECRET_KEY = "lispahackfinanceteam"  # Substitua pela sua própria chave secreta
+app.config['SECRET_KEY'] = SECRET_KEY
+
 @app.route("/login", methods=["POST"])
 def login():
     try:
         # Conecta ao banco de dados
         conn = obter_conexao()
         if conn is None:
-            return jsonify({"erro": "Erro ao conectar ao banco de dados"})
+            return jsonify({"erro": "Erro ao conectar ao banco de dados"}), 500
 
         cursor = conn.cursor(dictionary=True)
 
@@ -383,28 +419,36 @@ def login():
         email = dados_login["email"]
         senha = dados_login["senha"]
 
-        # Hash da senha
-        hashed_senha = hashlib.md5(senha.encode()).hexdigest()
+        # Obtém a senha hash do banco de dados
+        cursor.execute("SELECT senha FROM usuarios WHERE email = %s", (email,))
+        resultado = cursor.fetchone()
 
-        # Verifica as credenciais no banco de dados
-        query = "SELECT * FROM usuarios WHERE email = %s AND senha = %s"
-        cursor.execute(query, (email, hashed_senha))
+        if resultado:
+            # Verifica a senha usando Bcrypt
+            if bcrypt.check_password_hash(resultado['senha'], senha):
+                # Credenciais válidas, gera um token JWT
+                payload = {
+                    'sub': email,  # Substitua pelo identificador único do usuário
+                    'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1),
+                    'iat': datetime.datetime.utcnow()
+                }
+                token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
 
-        usuario = cursor.fetchone()
-
-        if usuario:
-            return jsonify({"mensagem": "Login bem-sucedido"})
+                return jsonify({"token": token.decode('utf-8')}), 200
+            else:
+                return jsonify({"erro": "Credenciais inválidas"}), 401
         else:
-            return jsonify({"erro": "Credenciais inválidas"})
+            return jsonify({"erro": "Credenciais inválidas"}), 401
 
     except Exception as e:
-        return jsonify({"erro": str(e)})
+        return jsonify({"erro": str(e)}), 500
 
     finally:
         # Fecha a conexão com o banco de dados
         if conn and conn.is_connected():
             cursor.close()
             conn.close()
+
 
 # Rota para criar um novo usuário
 @app.route("/criar_usuario", methods=["POST"])
@@ -452,5 +496,6 @@ def criar_usuario():
             cursor.close()
             conn.close()
 
+
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True, host="0.0.0.0")
