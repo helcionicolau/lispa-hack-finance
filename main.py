@@ -75,26 +75,41 @@ cred_mapping = {"Between 300 to 500": 0, "Above 500": 1}
 # ...............................................CRIAR CREDITO..................................................#
 
 
-def obter_motivo_decisao(predicao):
+# ... (código anterior)
+
+def obter_motivo_decisao(predicao, data_input):
     motivo = "Motivo da Decisão:\n"
     if predicao == 1:
         motivo += "O crédito foi aprovado."
     else:
         motivo += "O crédito foi rejeitado. Motivos possíveis:\n"
-        motivo += "- Valor do empréstimo muito alto.\n"
-        motivo += "- Baixa renda mensal do requerente ou co-requerente.\n"
-        motivo += "- Duração do empréstimo muito longa."
+        motivo += verificar_motivos_rejeicao(data_input)
 
     return motivo
 
-def enviar_email(email, motivo_decisao):
+def verificar_motivos_rejeicao(data_input):
+    motivos = []
+    
+    # Possíveis causas para rejeição
+    if data_input["valor_emprestimo"] > 50000:
+        motivos.append("- Valor do empréstimo muito alto.")
+    if data_input["renda_mensal_requerente"] < 2000 or data_input["renda_mensal_co_requerente"] < 2000:
+        motivos.append("- Baixa renda mensal do requerente ou co-requerente.")
+    if data_input["duracao_emprestimo"] > 2:
+        motivos.append("- Duração do empréstimo muito longa.")
+
+    # Formata os motivos em uma string
+    motivos_str = "\n".join(motivos)
+    return motivos_str
+
+def enviar_email(email, motivo_decisao, data_input):
     subject = "Detalhes da Solicitação de Crédito"
     
     # Corpo da mensagem formal
     body = f"Prezado Cliente,\n\n"
     body += "Agradecemos por escolher nossos serviços para a sua solicitação de crédito. Após uma cuidadosa análise, informamos que a decisão em relação ao seu pedido é a seguinte:\n\n"
     body += f"Resultado da Decisão: {motivo_decisao}\n\n"
-    body += f"{obter_motivo_decisao(motivo_decisao)}\n\n"
+    body += f"{obter_motivo_decisao(motivo_decisao, data_input)}\n\n"
     body += "Agradecemos pela confiança em nossa instituição. Caso tenha alguma dúvida ou precise de mais informações, não hesite em entrar em contato conosco.\n\n"
     body += "Atenciosamente,\n\n"
     body += "[Seu Nome]\n"
@@ -118,14 +133,6 @@ def enviar_email(email, motivo_decisao):
         server.sendmail(sender_email, email, msg.as_string())
 
     print(f"E-mail enviado para {email} com os detalhes da solicitação de crédito.")
-
-# ... (código posterior)
-
-
-# ... (código posterior)
-
-
-# ... (código posterior)
 
 
 # Rota para criar um novo empréstimo
