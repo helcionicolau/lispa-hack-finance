@@ -4,13 +4,8 @@ from flask import Flask, request, jsonify
 import mysql.connector
 import json
 import pickle
-import hashlib
 from flask_cors import CORS
 import datetime
-import bcrypt
-from passlib.hash import md5_crypt
-from flask_bcrypt import Bcrypt
-from werkzeug.security import check_password_hash, generate_password_hash
 import pdfkit
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
