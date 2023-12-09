@@ -460,62 +460,6 @@ def deletar_credito(id_emprestimo):
 # ...............................................LOGIN..................................................#
 # Rota para realizar o login
 
-# Chave secreta para assinar os tokens JWT
-SECRET_KEY = "lispahackfinanceteam"  # Substitua pela sua própria chave secreta
-app.config['SECRET_KEY'] = SECRET_KEY
-
-@app.route("/login", methods=["POST"])
-def login():
-    try:
-        # Conecta ao banco de dados
-        conn = obter_conexao()
-        if conn is None:
-            return jsonify({"erro": "Erro ao conectar ao banco de dados"}), 500
-
-        cursor = conn.cursor(dictionary=True)
-
-        # Converte a entrada para o formato JSON
-        dados_login = json.loads(request.data)
-
-        # Verifica se as chaves essenciais estão presentes nos dados de entrada
-        essenciais = ["email", "senha"]
-        for chave in essenciais:
-            if chave not in dados_login:
-                raise ValueError(f"Chave '{chave}' ausente nos dados de entrada")
-
-        email = dados_login["email"]
-        senha = dados_login["senha"]
-
-        # Obtém a senha hash do banco de dados
-        cursor.execute("SELECT senha FROM usuarios WHERE email = %s", (email,))
-        resultado = cursor.fetchone()
-
-        if resultado:
-            # Verifica a senha usando Bcrypt
-            if bcrypt.check_password_hash(resultado['senha'], senha):
-                # Credenciais válidas, gera um token JWT
-                payload = {
-                    'sub': email,  # Substitua pelo identificador único do usuário
-                    'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1),
-                    'iat': datetime.datetime.utcnow()
-                }
-                token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
-
-                return jsonify({"token": token.decode('utf-8')}), 200
-            else:
-                return jsonify({"erro": "Credenciais inválidas"}), 401
-        else:
-            return jsonify({"erro": "Credenciais inválidas"}), 401
-
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
-
-    finally:
-        # Fecha a conexão com o banco de dados
-        if conn and conn.is_connected():
-            cursor.close()
-            conn.close()
-
 
 # Rota para criar um novo usuário
 @app.route("/criar_usuario", methods=["POST"])
