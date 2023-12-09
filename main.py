@@ -5,7 +5,6 @@ import mysql.connector
 import json
 import pickle
 import hashlib
-import jwt
 from flask_cors import CORS
 import datetime
 import bcrypt
