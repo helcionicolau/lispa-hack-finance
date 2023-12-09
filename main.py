@@ -6,7 +6,6 @@ import json
 import pickle
 from flask_cors import CORS
 import datetime
-import pdfkit
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
