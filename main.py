@@ -16,8 +16,6 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 
 
-bcrypt = Bcrypt()
-
 app = Flask(__name__)
 CORS(app)
 
